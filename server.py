@@ -12,7 +12,6 @@ from time import sleep, time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from wsgiref.simple_server import make_server
 
-import picamera
 from ws4py.websocket import WebSocket
 from ws4py.server.wsgirefserver import (
     WSGIServer,
@@ -23,8 +22,8 @@ from ws4py.server.wsgiutils import WebSocketWSGIApplication
 
 ###########################################
 # CONFIGURATION
-WIDTH = 640
-HEIGHT = 480
+WIDTH = 1280
+HEIGHT = 720
 FRAMERATE = 24
 HTTP_PORT = 8082
 WS_PORT = 8084
@@ -86,24 +85,20 @@ class StreamingWebSocket(WebSocket):
 
 
 class BroadcastOutput(object):
-    def __init__(self, camera):
+    def __init__(self):
         print('Spawning background conversion process')
         self.converter = Popen([
             'ffmpeg',
-            '-f', 'rawvideo',
-            '-pix_fmt', 'yuv420p',
-            '-s', '%dx%d' % camera.resolution,
-            '-r', str(float(camera.framerate)),
-            '-i', '-',
+            '-i', '/dev/video0',
             '-f', 'mpeg1video',
             '-b', '800k',
-            '-r', str(float(camera.framerate)),
+            '-r', str(FRAMERATE),
             '-'],
             stdin=PIPE, stdout=PIPE, stderr=io.open(os.devnull, 'wb'),
             shell=False, close_fds=True)
 
     def write(self, b):
-        self.converter.stdin.write(b)
+        return
 
     def flush(self):
         print('Waiting for background conversion process to exit')
@@ -128,15 +123,8 @@ class BroadcastThread(Thread):
         finally:
             self.converter.stdout.close()
 
-
 def main():
-    print('Initializing camera')
-    with picamera.PiCamera() as camera:
-        camera.resolution = (WIDTH, HEIGHT)
-        camera.framerate = FRAMERATE
-        camera.vflip = VFLIP # flips image rightside up, as needed
-        camera.hflip = HFLIP # flips image left-right, as needed
-        sleep(1) # camera warm-up time
+    if True:
         print('Initializing websockets server on port %d' % WS_PORT)
         WebSocketWSGIHandler.http_version = '1.1'
         websocket_server = make_server(
@@ -150,10 +138,9 @@ def main():
         http_server = StreamingHttpServer()
         http_thread = Thread(target=http_server.serve_forever)
         print('Initializing broadcast thread')
-        output = BroadcastOutput(camera)
+        output = BroadcastOutput()
         broadcast_thread = BroadcastThread(output.converter, websocket_server)
         print('Starting recording')
-        camera.start_recording(output, 'yuv')
         try:
             print('Starting websockets thread')
             websocket_thread.start()
@@ -162,12 +149,10 @@ def main():
             print('Starting broadcast thread')
             broadcast_thread.start()
             while True:
-                camera.wait_recording(1)
+                sleep(0)
         except KeyboardInterrupt:
             pass
         finally:
-            print('Stopping recording')
-            camera.stop_recording()
             print('Waiting for broadcast thread to finish')
             broadcast_thread.join()
             print('Shutting down HTTP server')
