@@ -22,8 +22,8 @@ from ws4py.server.wsgiutils import WebSocketWSGIApplication
 
 ###########################################
 # CONFIGURATION
-WIDTH = 1280
-HEIGHT = 720
+WIDTH = 1920
+HEIGHT = 1080
 FRAMERATE = 24
 HTTP_PORT = 8082
 WS_PORT = 8084
