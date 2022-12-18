@@ -149,7 +149,7 @@ def main():
             print('Starting broadcast thread')
             broadcast_thread.start()
             while True:
-                sleep(0)
+                sleep(3600)
         except KeyboardInterrupt:
             pass
         finally:
